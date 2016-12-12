@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 """Serve a simple API showing currently active games."""
 
 import argparse
@@ -11,8 +10,14 @@ import os.path
 import re
 import sys
 from urllib.parse import urlparse
-from webtiles import WebTilesConnection
 import collections
+import json
+
+from webtiles import WebTilesConnection
+import aiohttp
+import aiohttp.server
+
+import asyncio
 
 Server = collections.namedtuple("Server", ('name', 'ws_url', 'ws_proto'))
 
@@ -31,8 +36,8 @@ _log = logging.getLogger()
 _log.setLevel(logging.INFO)
 _log.addHandler(logging.StreamHandler())
 
-class LobbyList(WebTilesConnection):
 
+class LobbyList(WebTilesConnection):
     def __init__(self, server_abbr, websocket_url, protocol_version):
         super().__init__()
         self.server_abbr = server_abbr
@@ -46,10 +51,11 @@ class LobbyList(WebTilesConnection):
         """
 
         if not self.connected():
-            await self.connect(self.websocket_url, protocol_version=self.protocol_version)
+            await self.connect(
+                self.websocket_url, protocol_version=self.protocol_version)
 
         if self.protocol_version > 1:
-            await self.send({"msg" : "lobby"})
+            await self.send({"msg": "lobby"})
             full_lobby = False
 
         while True:
@@ -59,11 +65,13 @@ class LobbyList(WebTilesConnection):
                 break
 
             for message in messages:
-                if self.protocol_version > 1 and message['msg'] == 'lobby_html':
+                if self.protocol_version > 1 and message[
+                        'msg'] == 'lobby_html':
                     full_lobby = True
                 await self.handle_message(message)
 
-            if (self.protocol_version == 1 and self.lobby_complete) or (self.protocol_version > 1 and full_lobby):
+            if (self.protocol_version == 1 and self.lobby_complete) or (
+                    self.protocol_version > 1 and full_lobby):
                 return self.lobby_entries
 
 
@@ -73,26 +81,40 @@ DATABASE = {}
 async def update_lobby_data(lister):
     while True:
         data = await lister.start()
-        print("Lobby data collected from {server}".format(server=lister.server_abbr, games=data))
-        await asyncio.sleep(1)
+        print("Lobby data collected from {server}".format(
+            server=lister.server_abbr, games=data))
+        await asyncio.sleep(5)
         DATABASE[lister.server_abbr] = data
 
 
-async def print_lobby_data():
-    while True:
-        for server, games in DATABASE.items():
-            print("{}: {} games".format(server, len(games)))
-        await asyncio.sleep(1)
+class ApiRequestHandler(aiohttp.server.ServerHttpProtocol):
+    async def handle_request(self, message, payload):
+        response = aiohttp.Response(
+            self.writer, 200, http_version=message.version)
+        data = json.dumps(DATABASE)
+        response.add_header('Content-Type', 'application/json')
+        response.add_header('Content-Length', str(len(data)))
+        response.send_headers()
+        response.write(data.encode())
+        await response.write_eof()
+
+
+async def lobby_data():
+    return web.json_response(DATABASE)
 
 
 def main():
-    ioloop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()
     for server in SERVERS:
         lobby_lister = LobbyList(server.name, server.ws_url, server.ws_proto)
-        ioloop.create_task(update_lobby_data(lobby_lister))
-    ioloop.create_task(print_lobby_data())
-    ioloop.run_forever()
-    ioloop.close()
+        loop.create_task(update_lobby_data(lobby_lister))
+
+    f = loop.create_server(
+        lambda: ApiRequestHandler(debug=True, keep_alive=75),
+        'localhost', '5678')
+    loop.create_task(f)
+    loop.run_forever()
+    loop.close()
 
 
 main()
