@@ -172,9 +172,9 @@ class ApiRequestHandler(aiohttp.server.ServerHttpProtocol):
         url = urllib.parse.urlsplit(message.path)
         args = urllib.parse.parse_qs(url.query)
         if url.path in routes.keys():
-            await routes[url.path](message, payload, url, args)
+            return await routes[url.path](message, payload, url, args)
         else:
-            await self.error_404(message, payload, url, args)
+            return await self.error_page(404, message, payload, url, args)
 
     async def list_games(self, message, payload, url, args):
         json_args = {
@@ -196,9 +196,11 @@ class ApiRequestHandler(aiohttp.server.ServerHttpProtocol):
             'sort_keys': True
         } if 'pretty' in args else {}
         if not args.get('player') or not args.get('server'):
-            return self.error_400(message, payload, url, args)
+            return await self.error_page(400, message, payload, url, args)
         player = args['player'][0]
         server = args['server'][0]
+        if not [g for g in DATABASE if g['username'] == player]:
+            return await self.error_page(404, message, payload, url, args)
 
         response = aiohttp.Response(
             self.writer, 200, http_version=message.version)
@@ -210,9 +212,9 @@ class ApiRequestHandler(aiohttp.server.ServerHttpProtocol):
         response.write(data.encode())
         await response.write_eof()
 
-    async def error_404(self, message, payload, url, args):
+    async def error_page(self, code, message, payload, url, args):
         response = aiohttp.Response(
-            self.writer, 404, http_version=message.version)
+            self.writer, code, http_version=message.version)
         response.send_headers()
         await response.write_eof()
 
