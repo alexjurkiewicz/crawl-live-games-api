@@ -1,0 +1,7 @@
+Description=Crawl Live Games API
+
+[Service]
+ExecStart=/app/live-games/contrib/run.sh
+
+[Install]
+WantedBy=multi-user.target
