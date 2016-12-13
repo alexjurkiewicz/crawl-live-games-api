@@ -1,2 +1,3 @@
 aiohttp
 https://github.com/gammafunk/webtiles/archive/master.tar.gz
+websockets
