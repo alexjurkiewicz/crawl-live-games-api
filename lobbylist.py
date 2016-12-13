@@ -196,7 +196,7 @@ class ApiRequestHandler(aiohttp.server.ServerHttpProtocol):
             'sort_keys': True
         } if 'pretty' in args else {}
         if not args.get('player') or not args.get('server'):
-            return error_400(message, payload, url, args)
+            return self.error_400(message, payload, url, args)
         player = args['player'][0]
         server = args['server'][0]
 
