@@ -13,7 +13,7 @@ import urllib.parse
 import collections
 import json
 
-from webtiles import WebTilesConnection
+from webtiles import WebTilesConnection, WebTilesGameConnection
 import aiohttp
 import aiohttp.server
 
@@ -91,6 +91,40 @@ class LobbyList(WebTilesConnection):
             return self.lobby_entries
 
 
+class GameWatcher(WebTilesGameConnection):
+    def __init__(self, server_abbr, websocket_url, protocol_version, username):
+        super().__init__()
+        self.server_abbr = server_abbr
+        self.websocket_url = websocket_url
+        self.protocol_version = protocol_version
+        self.target_game_id = -1
+        self.target_username = username
+
+    async def ensure_connected(self):
+        """Connect to the WebTiles server if needed."""
+        if not self.connected():
+            _log.info("{}: Connecting".format(self.server_abbr))
+            await self.connect(
+                self.websocket_url, protocol_version=self.protocol_version)
+            await self.send_watch_game(self.target_username, self.target_game_id)
+
+    async def find_player_info(self):
+        """Read and handle messages."""
+        while True:
+            await self.ensure_connected()
+            messages = await self.read()
+
+            if not messages:
+                # XXX Not sure why this could happen. Websocket timeout?
+                print("{}: No messages?!".format(self.server_abbr))
+                break
+
+            for message in messages:
+                if message['msg'] == 'player':
+                    return message
+                await self.handle_message(message)
+
+
 async def update_database(new_entries, server):
     global DATABASE
     # Remove existing entries for this server
@@ -119,13 +153,30 @@ async def update_lobby_data(lister):
         _log.debug("{}: Updated lobby data".format(lister.server_abbr))
 
 
+async def game_info(server_abbr, player):
+        server = [s for s in SERVERS if s.name == server_abbr]
+        if not server:
+            return None
+        server = server[0]
+
+        watcher = GameWatcher(server_abbr, server.ws_url, server.ws_proto, player)
+        return await watcher.find_player_info()
+
+
 class ApiRequestHandler(aiohttp.server.ServerHttpProtocol):
     async def handle_request(self, message, payload):
+        routes = {
+            '/games': self.list_games,
+            '/gameinfo': self.game_info,
+        }
         url = urllib.parse.urlsplit(message.path)
-        if url.path != '/':
-            return await self.return_404(message, payload)
-
         args = urllib.parse.parse_qs(url.query)
+        if url.path in routes.keys():
+            await routes[url.path](message, payload, url, args)
+        else:
+            await self.error_404(message, payload, url, args)
+
+    async def list_games(self, message, payload, url, args):
         json_args = {
             'indent': 2,
             'sort_keys': True
@@ -139,7 +190,27 @@ class ApiRequestHandler(aiohttp.server.ServerHttpProtocol):
         response.write(data.encode())
         await response.write_eof()
 
-    async def return_404(self, message, payload):
+    async def game_info(self, message, payload, url, args):
+        json_args = {
+            'indent': 2,
+            'sort_keys': True
+        } if 'pretty' in args else {}
+        if not args.get('player') or not args.get('server'):
+            return error_400(message, payload, url, args)
+        player = args['player'][0]
+        server = args['server'][0]
+
+        response = aiohttp.Response(
+            self.writer, 200, http_version=message.version)
+        info = await game_info(server, player)
+        data = json.dumps(info, **json_args)
+        response.add_header('Content-Type', 'application/json')
+        response.add_header('Content-Length', str(len(data)))
+        response.send_headers()
+        response.write(data.encode())
+        await response.write_eof()
+
+    async def error_404(self, message, payload, url, args):
         response = aiohttp.Response(
             self.writer, 404, http_version=message.version)
         response.send_headers()
