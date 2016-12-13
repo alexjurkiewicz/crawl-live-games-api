@@ -63,9 +63,10 @@ class LobbyList(WebTilesConnection):
                 _log.info("%s: Requesting initial lobby", self.server_abbr)
                 await self.send({"msg": "lobby"})
 
-    async def process(self):
+    async def get_lobby_entries(self):
         """Read and handle messages."""
         while True:
+            await self.ensure_connected()
             messages = await self.read()
 
             if not messages:
@@ -132,11 +133,12 @@ async def update_database(new_entries, server):
 async def update_lobby_data(lister):
     while True:
         try:
-            await lister.ensure_connected()
-            entries = await lister.process()
+            entries = await lister.get_lobby_entries()
         except KeyboardInterrupt:
             print("Bye")
             break
+        except websockets.exceptions.ConnectionClosed:
+            continue
         for entry in entries:
             entry['server'] = lister.server_abbr
             entry['watchlink'] = lister.watchlink(entry['username'])
