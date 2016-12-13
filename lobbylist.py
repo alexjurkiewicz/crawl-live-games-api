@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 """Serve a simple API showing currently active games."""
 
-import argparse
 import asyncio
-import getpass
 import logging
-import os
-import os.path
-import re
-import sys
 import urllib.parse
 import collections
 import json
@@ -16,8 +10,6 @@ import json
 from webtiles import WebTilesConnection, WebTilesGameConnection
 import aiohttp
 import aiohttp.server
-
-import asyncio
 
 Server = collections.namedtuple("Server",
                                 ('name', 'ws_url', 'ws_proto', 'base_url'))
@@ -64,12 +56,11 @@ class LobbyList(WebTilesConnection):
     async def ensure_connected(self):
         """Connect to the WebTiles server if needed."""
         if not self.connected():
-            _log.info("{}: Connecting".format(self.server_abbr))
+            _log.info("%s: Connecting", self.server_abbr)
             await self.connect(
                 self.websocket_url, protocol_version=self.protocol_version)
             if self.protocol_version > 1:
-                _log.info("{}: Requesting initial lobby".format(
-                    self.server_abbr))
+                _log.info("%s: Requesting initial lobby", self.server_abbr)
                 await self.send({"msg": "lobby"})
 
     async def process(self):
@@ -85,7 +76,7 @@ class LobbyList(WebTilesConnection):
             for message in messages:
                 await self.handle_message(message)
 
-            if (self.protocol_version == 1 and not self.lobby_complete):
+            if self.protocol_version == 1 and not self.lobby_complete:
                 continue
 
             return self.lobby_entries
@@ -103,7 +94,7 @@ class GameWatcher(WebTilesGameConnection):
     async def ensure_connected(self):
         """Connect to the WebTiles server if needed."""
         if not self.connected():
-            _log.info("{}: Connecting".format(self.server_abbr))
+            _log.info("%s: Connecting", self.server_abbr)
             await self.connect(
                 self.websocket_url, protocol_version=self.protocol_version)
             await self.send_watch_game(self.target_username, self.target_game_id)
@@ -150,17 +141,17 @@ async def update_lobby_data(lister):
             entry['server'] = lister.server_abbr
             entry['watchlink'] = lister.watchlink(entry['username'])
         await update_database(entries, lister.server_abbr)
-        _log.debug("{}: Updated lobby data".format(lister.server_abbr))
+        _log.debug("%s: Updated lobby data", lister.server_abbr)
 
 
 async def game_info(server_abbr, player):
-        server = [s for s in SERVERS if s.name == server_abbr]
-        if not server:
-            return None
-        server = server[0]
+    server = [s for s in SERVERS if s.name == server_abbr]
+    if not server:
+        return None
+    server = server[0]
 
-        watcher = GameWatcher(server_abbr, server.ws_url, server.ws_proto, player)
-        return await watcher.find_player_info()
+    watcher = GameWatcher(server_abbr, server.ws_url, server.ws_proto, player)
+    return await watcher.find_player_info()
 
 
 class ApiRequestHandler(aiohttp.server.ServerHttpProtocol):
@@ -226,8 +217,8 @@ def main():
                                  server.base_url)
         loop.create_task(update_lobby_data(lobby_lister))
 
-    f = loop.create_server(lambda: ApiRequestHandler(), 'localhost', '5678')
-    loop.create_task(f)
+    httpd = loop.create_server(lambda: ApiRequestHandler(), 'localhost', '5678')
+    loop.create_task(httpd)
     try:
         loop.run_forever()
     except KeyboardInterrupt:
