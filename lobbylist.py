@@ -142,6 +142,7 @@ async def update_lobby_data(lister):
         for entry in entries:
             entry['server'] = lister.server_abbr
             entry['watchlink'] = lister.watchlink(entry['username'])
+            entry['idle'] = bool(entry['idle_time'] != 0)
         await update_database(entries, lister.server_abbr)
         _log.debug("%s: Updated lobby data", lister.server_abbr)
 
