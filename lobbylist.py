@@ -10,6 +10,7 @@ import json
 from webtiles import WebTilesConnection, WebTilesGameConnection
 import aiohttp
 import aiohttp.server
+import websockets
 
 Server = collections.namedtuple("Server",
                                 ('name', 'ws_url', 'ws_proto', 'base_url'))
