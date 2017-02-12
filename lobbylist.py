@@ -68,6 +68,81 @@ BRANCH_NAMES = {
     'Pan': 'Pandemonium',
     'Trove': 'Treasure Trove'
 }
+SPECIES_NAMES = {
+    'Ba': 'Barachian',
+    'Mf': 'Merfolk',
+    'Ke': 'Kenku',
+    'MD': 'Mountain Dwarf',
+    'Og': 'Ogre',
+    'Na': 'Naga',
+    'DD': 'Deep Dwarf',
+    'DE': 'Deep Elf',
+    'Tr': 'Troll',
+    'Mu': 'Mummy',
+    'GE': 'Grey Elf',
+    'VS': 'Vine Stalker',
+    'HO': 'Hill Orc',
+    'Sp': 'Spriggan',
+    'Te': 'Tengu',
+    'HD': 'Hill Dwarf',
+    'HE': 'High Elf',
+    'El': 'Elf',
+    'OM': 'Ogre-Mage',
+    'Dj': 'Djinni',
+    'Gr': 'Gargoyle',
+    'Ko': 'Kobold',
+    'Dg': 'Demigod',
+    'Gh': 'Ghoul',
+    'Fo': 'Formicid',
+    'Ce': 'Centaur',
+    'Hu': 'Human',
+    'Vp': 'Vampire',
+    'Op': 'Octopode',
+    'Mi': 'Minotaur',
+    'Pl': 'Plutonian',
+    'LO': 'Lava Orc',
+    'Gn': 'Gnome',
+    'Ha': 'Halfling',
+    'Dr': 'Draconian',
+    'Ds': 'Demonspawn',
+    'SE': 'Sludge Elf',
+    'Fe': 'Felid'
+}
+BACKGROUND_NAMES = {
+    'Pr': 'Priest',
+    'CK': 'Chaos Knight',
+    'AE': 'Air Elementalist',
+    'DK': 'Death Knight',
+    'Cj': 'Conjurer',
+    'EE': 'Earth Elementalist',
+    'Mo': 'Monk',
+    'AM': 'Arcane Marksman',
+    'Ne': 'Necromancer',
+    'Su': 'Summoner',
+    'VM': 'Venom Mage',
+    'Sk': 'Skald',
+    'Re': 'Reaver',
+    'Pa': 'Paladin',
+    'FE': 'Fire Elementalist',
+    'Th': 'Thief',
+    'Cr': 'Crusader',
+    'St': 'Stalker',
+    'IE': 'Ice Elementalist',
+    'Be': 'Berserker',
+    'En': 'Enchanter',
+    'Wn': 'Wanderer',
+    'Jr': 'Jester',
+    'Hu': 'Hunter',
+    'AK': 'Abyssal Knight',
+    'As': 'Assassin',
+    'Ar': 'Artificer',
+    'Wr': 'Warper',
+    'Fi': 'Fighter',
+    'Gl': 'Gladiator',
+    'Tm': 'Transmuter',
+    'Wz': 'Wizard',
+    'He': 'Healer'
+}
 
 _log = logging.getLogger()
 _log.setLevel(logging.INFO)
@@ -232,6 +307,11 @@ async def update_lobby_data(lister):
             if 'place' in entry:
                 entry['branch'], entry['branchlevel'], entry[
                     'place_human_readable'] = parse_location(entry['place'])
+            if 'char' in entry:
+                sp = entry['char'][:2]
+                bg = entry['char'][2:]
+                entry['species'] = SPECIES_NAMES.get(sp, sp)
+                entry['background'] = BACKGROUND_NAMES.get(bg, bg)
         # Crud from webtiles lib
         if 'msg' in entries and entries['msg'] == 'lobby_entry':
             del (entries['msg'])
