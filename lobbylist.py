@@ -172,8 +172,8 @@ def parse_location(location):
     branch = BRANCH_NAMES.get(br, br)
 
     if br in ('D', 'Orc', 'Elf', 'Lair', 'Depths', 'Swamp', 'Shoals', 'Slime',
-              'Snake', 'Spider', 'Vaults', 'Crypt', 'Tomb', 'Dis', 'Geh',
-              'Coc', 'Tar', 'Zot', 'Abyss'):
+              'Snake', 'Spider', 'Vaults', 'Crypt', 'Tomb', 'Dis', 'Zot',
+              'Abyss'):
         if branchlevel != '0':
             humanreadable = "on level {} of the {}".format(branchlevel, branch)
         else:
