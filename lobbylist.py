@@ -182,7 +182,8 @@ class GameWatcher(WebTilesGameConnection):
             _log.info("%s: Connecting", self.server_abbr)
             await self.connect(
                 self.websocket_url, protocol_version=self.protocol_version)
-            await self.send_watch_game(self.target_username, self.target_game_id)
+            await self.send_watch_game(self.target_username,
+                                       self.target_game_id)
 
     async def find_player_info(self):
         """Read and handle messages."""
@@ -310,7 +311,8 @@ def main():
                                  server.base_url)
         loop.create_task(update_lobby_data(lobby_lister))
 
-    httpd = loop.create_server(lambda: ApiRequestHandler(), 'localhost', '5678')
+    httpd = loop.create_server(lambda: ApiRequestHandler(), 'localhost',
+                               '5678')
     loop.create_task(httpd)
     try:
         loop.run_forever()
