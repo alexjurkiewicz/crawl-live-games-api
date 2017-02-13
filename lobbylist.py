@@ -34,10 +34,93 @@ SERVERS = [
            'http://lazy-life.ddo.jp:8080/'),
 ]
 DATABASE = []
+BRANCH_NAMES = {
+    'D': 'Dungeon',
+    'Orc': 'Orcish Mines',
+    'Elf': 'Elven Halls',
+    'Lair': 'Lair of the Beasts',
+    'Depths': 'Depths',
+    'Swamp': 'Swamp',
+    'Shoals': 'Shoals',
+    'Spider': 'Spider Nest',
+    'Snake': 'Snake Pit',
+    'Slime': 'Slime Pits',
+    'Vaults': 'Vaults',
+    'Crypt': 'Crypt',
+    'Tomb': 'Tomb of the Ancients',
+    'Dis': 'Iron City of Dis',
+    'Geh': 'Gehenna',
+    'Coc': 'Cocytus',
+    'Tar': 'Tartarus',
+    'Zot': 'Realm of Zot',
+    'Abyss': 'Abyss',
+    'Zig': 'Ziggurat',
+    'Lab': 'Labyrinth',
+    'Bazaar': 'Bazaar',
+    'WizLab': 'Wizard\'s Laboratory',
+    'Sewer': 'Sewer',
+    'Bailey': 'Bailey',
+    'Ossuary': 'Ossuary',
+    'IceCv': 'Ice Cave',
+    'Volcano': 'Volcano',
+    'Hell': 'Vestibule of Hell',
+    'Temple': 'Ecumenical Temple',
+    'Pan': 'Pandemonium',
+    'Trove': 'Treasure Trove'
+}
 
 _log = logging.getLogger()
 _log.setLevel(logging.INFO)
 _log.addHandler(logging.StreamHandler())
+
+
+def parse_location(location):
+    """Parse raw location string and return (branch, branchlevel, humanreadable).
+
+    Example strings: 'D:8', 'Lair:1', 'Temple', 'Pan', 'Tar:4'
+
+    The human readable string is quite complex. There are six forms:
+    * On level 1 of the Dungeon/Abyss/...
+    * On level 1 of Tartarus/Cocytus/Gehenna
+    * On level 1 of a Ziggurat
+    * In a Labyrinth/Wizard Lab/...
+    * In an Ice Cave/Ossuary
+    * In the Vestibule of Hell/Ecumenical Temple
+    * In Pandemonium
+    """
+    if ':' in location:
+        br = location.split(':', 1)[0]
+        branchlevel = location.split(':')[1]
+    else:
+        br = location
+        branchlevel = '0'
+    branch = BRANCH_NAMES.get(br, br)
+
+    if br in ('D', 'Orc', 'Elf', 'Lair', 'Depths', 'Swamp', 'Shoals', 'Slime',
+              'Snake', 'Spider', 'Vaults', 'Crypt', 'Tomb', 'Dis', 'Geh',
+              'Coc', 'Tar', 'Zot', 'Abyss'):
+        if branchlevel != '0':
+            humanreadable = "on level {} of the {}".format(branchlevel, branch)
+        else:
+            # zot defense or sprint
+            humanreadable = "in the {}".format(branch)
+    elif br in ('Tar', 'Geh', 'Coc'):
+        humanreadable = "on level {} of {}".format(branchlevel, branch)
+    elif br in ('Zig', ):
+        humanreadable = "on level {} of a {}".format(branchlevel, branch)
+    elif br in ('Lab', 'Bazaar', 'WizLab', 'Sewer', 'Bailey', 'Volcano',
+                'Trove', 'Salt'):
+        humanreadable = "in a {}".format(branch)
+    elif br in ('Ossuary', 'IceCv'):
+        humanreadable = "in an {}".format(branch)
+    elif br in ('Hell', 'Temple'):
+        humanreadable = "in the {}".format(branch)
+    elif br in ('Pan', ):
+        humanreadable = "in {}".format(branch)
+    else:
+        humanreadable = 'at {}'.format(location)
+
+    return (branch, branchlevel, humanreadable)
 
 
 class LobbyList(WebTilesConnection):
@@ -140,10 +223,16 @@ async def update_lobby_data(lister):
             break
         except websockets.exceptions.ConnectionClosed:
             continue
+        # Add some data the lobby doesn't provide
         for entry in entries:
             entry['server'] = lister.server_abbr
             entry['watchlink'] = lister.watchlink(entry['username'])
             entry['idle'] = bool(entry['idle_time'] != 0)
+            entry['branch'], entry['branchlevel'], entry[
+                'place_human_readable'] = parse_location(entry['place'])
+        # Crud from webtiles lib
+        if 'msg' in entries and entries['msg'] == 'lobby_entry':
+            del (entries['msg'])
         await update_database(entries, lister.server_abbr)
         _log.debug("%s: Updated lobby data", lister.server_abbr)
 
