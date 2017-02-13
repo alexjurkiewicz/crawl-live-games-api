@@ -229,8 +229,9 @@ async def update_lobby_data(lister):
             entry['server'] = lister.server_abbr
             entry['watchlink'] = lister.watchlink(entry['username'])
             entry['idle'] = bool(entry['idle_time'] != 0)
-            entry['branch'], entry['branchlevel'], entry[
-                'place_human_readable'] = parse_location(entry['place'])
+            if 'place' in entry:
+                entry['branch'], entry['branchlevel'], entry[
+                    'place_human_readable'] = parse_location(entry['place'])
         # Crud from webtiles lib
         if 'msg' in entries and entries['msg'] == 'lobby_entry':
             del (entries['msg'])
